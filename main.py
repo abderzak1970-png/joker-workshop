@@ -1,40 +1,56 @@
 import streamlit as st
+import pandas as pd
 import os
 
-st.set_page_config(page_title="ورشة جوكر", layout="centered")
-st.title("🔧 نظام إدارة ورشة جوكر")
+st.set_page_config(page_title="ورشة عبد الرزاق", layout="wide")
+st.title("🔧 نظام إدارة ورشة عبد الرزاق")
+
+# --- ملف البيانات ---
+DATA_FILE = "joker_data.csv"
 
 # --- إضافة بيانات جديدة ---
-st.subheader("إضافة جهاز جديد للورشة")
+with st.expander("➕ إضافة جهاز جديد"):
+    col1, col2 = st.columns(2)
+    with col1:
+        customer = st.text_input("اسم الزبون")
+        phone = st.text_input("رقم الهاتف")
+    with col2:
+        device = st.text_input("نوع الجهاز")
+        status = st.selectbox("حالة الجهاز", ["تحت الصيانة", "بانتظار قطع غيار", "جاهز للتسليم", "تم التسليم"])
+    
+    fault = st.text_area("وصف العطل")
+    price = st.text_input("السعر")
 
-customer_name = st.text_input("👤 اسم الزبون")
-phone_number = st.text_input("📞 رقم الهاتف")
-device_type = st.text_input("📱 نوع الجهاز")
-fault = st.text_area("🛠️ العطل (المشكلة)")
-status = st.selectbox("📋 حالة الجهاز", ["تحت الصيانة", "تم الإصلاح", "جاهز للتسليم"])
-price = st.text_input("💰 السعر المتوقع")
-
-if st.button("💾 حفظ البيانات"):
-    with open("joker_data.txt", "a", encoding="utf-8") as f:
-        f.write(f"الزبون: {customer_name} | الهاتف: {phone_number} | الجهاز: {device_type} | العطل: {fault} | الحالة: {status} | السعر: {price}\n")
-    st.success("تم حفظ بيانات الجهاز بنجاح!")
+    if st.button("حفظ البيانات"):
+        new_data = pd.DataFrame([[customer, phone, device, fault, status, price]], 
+                                columns=["الزبون", "الهاتف", "الجهاز", "العطل", "الحالة", "السعر"])
+        if os.path.exists(DATA_FILE):
+            new_data.to_csv(DATA_FILE, mode='a', header=False, index=False, encoding='utf-8-sig')
+        else:
+            new_data.to_csv(DATA_FILE, index=False, encoding='utf-8-sig')
+        st.success("تم الحفظ!")
 
 st.markdown("---")
 
-# --- عرض البيانات ---
-st.subheader("📋 قائمة الأجهزة المسجلة")
+# --- عرض البيانات مع الفلتر ---
+st.subheader("📋 سجل الأجهزة")
+if os.path.exists(DATA_FILE):
+    df = pd.read_csv(DATA_FILE, encoding='utf-8-sig')
+    
+    # فلتر حسب الحالة
+    filter_status = st.multiselect("فلتر حسب الحالة:", options=df["الحالة"].unique(), default=df["الحالة"].unique())
+    filtered_df = df[df["الحالة"].isin(filter_status)]
+    
+    st.dataframe(filtered_df, use_container_width=True)
 
-if os.path.exists("joker_data.txt"):
-    with open("joker_data.txt", "r", encoding="utf-8") as f:
-        data = f.read()
-        st.text(data)
+    # تنبيه للأجهزة التي تنتظر قطع غيار
+    waiting_parts = df[df["الحالة"] == "بانتظار قطع غيار"]
+    if not waiting_parts.empty:
+        st.warning(f"⚠️ تنبيه: لديك {len(waiting_parts)} أجهزة بانتظار قطع غيار!")
 
-    # زر تحميل البيانات
-    st.download_button(label="📥 تحميل نسخة من البيانات", data=data, file_name="سجل_الورشة.txt")
-
-    # زر مسح البيانات
+    # زر مسح
     if st.button("🗑️ مسح جميع البيانات"):
-        os.remove("joker_data.txt")
-        st.rerun() # تحديث الصفحة بعد المسح
+        os.remove(DATA_FILE)
+        st.rerun()
 else:
-    st.info("لا توجد أجهزة مسجلة حالياً.")
+    st.info("لا توجد بيانات حالياً.")
