@@ -14,15 +14,7 @@ with st.expander("➕ إضافة جهاز جديد"):
         c1, c2 = st.columns(2)
         customer = c1.text_input("اسم الزبون")
         phone = c2.text_input("رقم الهاتف")
-        
-        # قائمة الأجهزة الذكية
-        device_options = ["عجانات", "خلاطات", "مكروويف", "آلات عصر القهوة", "غير ذلك"]
-        device_selection = c1.selectbox("نوع الجهاز", device_options)
-        if device_selection == "غير ذلك":
-            device_type = c1.text_input("اكتب نوع الجهاز هنا")
-        else:
-            device_type = device_selection
-            
+        device_type = c1.selectbox("نوع الجهاز", ["عجانات", "خلاطات", "مكروويف", "آلات عصر القهوة", "غير ذلك"])
         fault = c2.text_input("العطل")
         price = c1.text_input("السعر")
         status = c2.selectbox("الحالة", ["تحت الصيانة", "بانتظار قطع غيار", "جاهز للتسليم", "تم التسليم"])
@@ -36,32 +28,37 @@ with st.expander("➕ إضافة جهاز جديد"):
             else:
                 new_data.to_csv(DATA_FILE, index=False, encoding='utf-8-sig')
             st.success("تم الحفظ!")
+            st.rerun()
 
 st.markdown("---")
 
-# --- عرض وتحديث الأجهزة ---
-st.subheader("📋 سجل الأجهزة")
+# --- عرض وإدارة الأجهزة ---
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE, encoding='utf-8-sig')
     
-    # البحث
-    search = st.text_input("🔍 بحث بالاسم أو الهاتف:")
-    if search:
-        df = df[df["الزبون"].str.contains(search, na=False) | df["الهاتف"].str.contains(search, na=False)]
-    
-    st.dataframe(df, use_container_width=True)
+    st.subheader("📋 قائمة الأجهزة")
+    # عرض الجدول بدون الفهرس (0, 1, 2)
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
-    # زر بسيط لتحديث حالة أول جهاز يظهر في البحث
-    if not df.empty:
-        st.write("---")
-        st.subheader("🔄 تحديث حالة جهاز")
-        target_index = st.number_input("أدخل رقم الصف (Index) للجهاز المراد تحديثه", min_value=0, max_value=len(df)-1, step=1)
-        new_status = st.selectbox("الحالة الجديدة", ["تحت الصيانة", "بانتظار قطع غيار", "جاهز للتسليم", "تم التسليم"])
-        
+    # --- عمليات الإدارة ---
+    st.markdown("---")
+    col_a, col_b = st.columns(2)
+    
+    with col_a:
+        st.subheader("🔄 تحديث حالة")
+        idx = st.number_input("رقم الصف لتحديثه", min_value=0, max_value=len(df)-1, step=1)
+        new_stat = st.selectbox("الحالة الجديدة", ["تحت الصيانة", "بانتظار قطع غيار", "جاهز للتسليم", "تم التسليم"])
         if st.button("تحديث الحالة"):
-            df.at[target_index, "الحالة"] = new_status
+            df.at[idx, "الحالة"] = new_stat
             df.to_csv(DATA_FILE, index=False, encoding='utf-8-sig')
-            st.success("تم التحديث!")
+            st.rerun()
+
+    with col_b:
+        st.subheader("🗑️ مسح زبون")
+        del_idx = st.number_input("رقم الصف لمسحه", min_value=0, max_value=len(df)-1, step=1)
+        if st.button("مسح هذا الزبون"):
+            df = df.drop(del_idx)
+            df.to_csv(DATA_FILE, index=False, encoding='utf-8-sig')
             st.rerun()
 else:
-    st.info("لا توجد أجهزة مسجلة.")
+    st.info("لا توجد بيانات حالياً.")
