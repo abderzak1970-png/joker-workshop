@@ -3,54 +3,46 @@ import pandas as pd
 import os
 
 st.set_page_config(page_title="ورشة عبد الرزاق", layout="wide")
-st.title("🔧 نظام إدارة ورشة عبد الرزاق")
+st.title("🔧 ورشة عبد الرزاق للإصلاح")
 
-# --- ملف البيانات ---
 DATA_FILE = "joker_data.csv"
 
-# --- إضافة بيانات جديدة ---
+# --- إضافة جهاز جديد ---
 with st.expander("➕ إضافة جهاز جديد"):
-    col1, col2 = st.columns(2)
-    with col1:
-        customer = st.text_input("اسم الزبون")
-        phone = st.text_input("رقم الهاتف")
-    with col2:
-        device = st.text_input("نوع الجهاز")
-        status = st.selectbox("حالة الجهاز", ["تحت الصيانة", "بانتظار قطع غيار", "جاهز للتسليم", "تم التسليم"])
-    
-    fault = st.text_area("وصف العطل")
-    price = st.text_input("السعر")
-
-    if st.button("حفظ البيانات"):
-        new_data = pd.DataFrame([[customer, phone, device, fault, status, price]], 
-                                columns=["الزبون", "الهاتف", "الجهاز", "العطل", "الحالة", "السعر"])
-        if os.path.exists(DATA_FILE):
-            new_data.to_csv(DATA_FILE, mode='a', header=False, index=False, encoding='utf-8-sig')
-        else:
-            new_data.to_csv(DATA_FILE, index=False, encoding='utf-8-sig')
-        st.success("تم الحفظ!")
+    with st.form("add_form"):
+        c1, c2 = st.columns(2)
+        customer = c1.text_input("اسم الزبون")
+        phone = c2.text_input("رقم الهاتف")
+        device = c1.text_input("نوع الجهاز")
+        fault = c2.text_input("العطل")
+        status = st.selectbox("الحالة", ["تحت الصيانة", "بانتظار قطع غيار", "جاهز للتسليم", "تم التسليم"])
+        if st.form_submit_button("حفظ الجهاز"):
+            new_row = pd.DataFrame([[customer, phone, device, fault, status]], 
+                                    columns=["الزبون", "الهاتف", "الجهاز", "العطل", "الحالة"])
+            if os.path.exists(DATA_FILE):
+                new_row.to_csv(DATA_FILE, mode='a', header=False, index=False, encoding='utf-8-sig')
+            else:
+                new_row.to_csv(DATA_FILE, index=False, encoding='utf-8-sig')
+            st.success("تم الحفظ!")
 
 st.markdown("---")
 
-# --- عرض البيانات مع الفلتر ---
-st.subheader("📋 سجل الأجهزة")
+# --- البحث والفرز ---
+st.subheader("🔍 بحث وعرض الأجهزة")
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE, encoding='utf-8-sig')
     
-    # فلتر حسب الحالة
-    filter_status = st.multiselect("فلتر حسب الحالة:", options=df["الحالة"].unique(), default=df["الحالة"].unique())
-    filtered_df = df[df["الحالة"].isin(filter_status)]
+    # مربع البحث
+    search = st.text_input("ابحث بالاسم أو رقم الهاتف:")
+    if search:
+        df = df[df["الزبون"].str.contains(search, na=False) | df["الهاتف"].str.contains(search, na=False)]
     
-    st.dataframe(filtered_df, use_container_width=True)
+    # عرض الجدول
+    st.dataframe(df, use_container_width=True)
 
-    # تنبيه للأجهزة التي تنتظر قطع غيار
-    waiting_parts = df[df["الحالة"] == "بانتظار قطع غيار"]
-    if not waiting_parts.empty:
-        st.warning(f"⚠️ تنبيه: لديك {len(waiting_parts)} أجهزة بانتظار قطع غيار!")
-
-    # زر مسح
-    if st.button("🗑️ مسح جميع البيانات"):
-        os.remove(DATA_FILE)
-        st.rerun()
+    # التنبيهات الذكية
+    pending = df[df["الحالة"] == "بانتظار قطع غيار"]
+    if not pending.empty:
+        st.warning(f"⚠️ تنبيه: {len(pending)} جهاز يحتاج لقطع غيار.")
 else:
-    st.info("لا توجد بيانات حالياً.")
+    st.info("لا توجد أجهزة مسجلة.")
